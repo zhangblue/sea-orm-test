@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# 此脚本用于在docker中启动一个pg，并且根据migration生成对应的entity
+
+set -o errexit
+set -x
+cd "$(dirname "${0}")"
+cd ../
+
+# 启动数据库docker
+docker run \
+    --rm \
+    --name "postgres-12" \
+    --env POSTGRES_DB="sea_orm_test_db" \
+    --env POSTGRES_USER="zhang" \
+    --env POSTGRES_PASSWORD="123456789" \
+    -d -p 5432:5432 postgres:12
+
+sleep 5
+
+# 执行migration生成表
+cargo run \
+    --manifest-path migration/Cargo.toml \
+    -- refresh \
+    -u postgres://zhang:123456789@localhost:5432/sea_orm_test_db
+
+# 根据表生成entity
+sea-orm-cli generate entity --with-serde both \
+    -u postgres://zhang:123456789@127.0.0.1:5432/sea_orm_test_db \
+    -l \
+    -o entity/src
+
+docker stop "postgres-12"
